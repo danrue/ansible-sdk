@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require 'ansible-sdk-cli'
+
+AnsibleSDKCLI.start(ARGV)
+
+# vim: ft=ruby :
