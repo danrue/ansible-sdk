@@ -57,7 +57,11 @@ Given a file like this:
     - from: inventory
         to: ./
 </pre>
-An ansible-sdk command can resolve the specified dependency by downloading the
+An ansible-sdk command:
+
+`ansible-sdk dependencies`
+
+can resolve the specified dependency by downloading the
 tarball to a temporary location and then pull each path `from` the source and 
 copy it `to` the specified destination, relative to the current working directory.
 
