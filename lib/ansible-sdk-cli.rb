@@ -11,7 +11,7 @@ class AnsibleSDKCLI < Thor
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
     excludefile.fsync
    Dir.entries('roles').reject{ |d| 
-      asdk.role_excludes.include? d 
+      asdk.role_excludes.include?(d) or !File.directory?(d)
     }.each do |roledir|
       role = File.basename(roledir)
       path = File.join 'roles', roledir
@@ -98,12 +98,12 @@ class AnsibleSDKCLI < Thor
         file.fsync
         asdk.unarchive( file.path, requirement['paths'] )
         file.unlink
-      elsif requirement['method'] == 'git'
+      elsif requirement['method'] == 'git' or requirement['url'] =~ /git@github\.com/
         raise Exception, "git backends Unimplemented"
       elsif requirement['url'] =~ %r(https?://)
         raise Exception, "http(s) backends Unimplemented"
       else
-        asdk.log.fatal(msg="Couldn't resolve dependency: requirement.inspect}")
+        asdk.log.fatal(msg="Couldn't resolve dependency: #{requirement.inspect}")
         raise ArgumentError, msg
       end
     end
