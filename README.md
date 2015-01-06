@@ -1,9 +1,7 @@
 ansible-sdk
 ===========
 
-Ansible Development Kit
-=======
-# Ansible SDK
+### *The SPS Ansible Development Kit*
 
 ## Functions
 
