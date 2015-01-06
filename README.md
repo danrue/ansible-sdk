@@ -51,7 +51,7 @@ By default, bucket `sps-build-deploy` and
 ### Resove role or artifact dependencies
 
 Given a file like this:
-<pre
+<pre>
 - url: s3://sps-build-deploy/ansible/ansible-demo-tarball-0.0.0.tbz2
   paths:
     - from: inventory
