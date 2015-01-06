@@ -10,16 +10,19 @@ class AnsibleSDKCLI < Thor
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
     excludefile.fsync
-   Dir.entries('roles').reject{ |d| 
-      asdk.role_excludes.include?(d) or !File.directory?(d)
+    Dir.entries('roles').reject{ |d| 
+      asdk.role_excludes.include?(d) or ! File.directory? "roles/#{d}"
     }.each do |roledir|
+      paths = asdk.role_paths.select{ |p| 
+        File.exists? "roles/#{roledir}/#{p}"
+      }
       role = File.basename(roledir)
       path = File.join 'roles', roledir
       asdk.log.debug "Building role #{role} from #{roledir}"
       result = asdk.execute(
         "tar cvjpf build/#{roledir}-#{asdk.version path}.tbz2 " +
           "-X #{excludefile.path} " +
-          "-C #{path} #{ asdk.role_paths.join " " }"
+          "-C #{path} #{ paths.join " " }"
       ) 
       unless result[:exit_status] == 0
         raise CommandError, 
