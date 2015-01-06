@@ -50,7 +50,7 @@ By default, bucket `sps-build-deploy` and
 
 ### Resove role or artifact dependencies
 
-Given a file like this:
+Given a file `requirements.yml` in your current directory that looks like this:
 <pre>
 - url: s3://sps-build-deploy/ansible/ansible-demo-tarball-0.0.0.tbz2
   paths:
