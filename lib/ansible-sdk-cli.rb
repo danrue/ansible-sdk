@@ -20,7 +20,7 @@ class AnsibleSDKCLI < Thor
       path = File.join 'roles', roledir
       asdk.log.debug "Building role #{role} from #{roledir}"
       result = asdk.execute(
-        "tar cvjpf build/#{roledir}-#{asdk.version path}.tbz2 " +
+        "tar cvzpf build/#{roledir}-#{asdk.version path}.tgz " +
           "-X #{excludefile.path} " +
           "-C #{path} #{ paths.join " " }"
       ) 
@@ -40,8 +40,8 @@ class AnsibleSDKCLI < Thor
     entries = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
     asdk.log.debug "Building playbook artifact for #{playbook_name}"
     result = asdk.execute(
-      "tar cvjpf " +
-      "build/#{playbook_name}-#{asdk.version '.'}.tbz2 " + 
+      "tar cvzpf " +
+      "build/#{playbook_name}-#{asdk.version '.'}.tgz " + 
       "-X #{excludefile.path} " +
       "-C . #{ entries.join " " }"
     ) 
