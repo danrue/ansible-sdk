@@ -3,9 +3,9 @@ require 'thor'
 require 'ansible-sdk' 
 
 class AnsibleSDKCLI < Thor
+  class_option :build_dir, type: :string, default: 'build'
 
   desc 'role_artifact', 'build role artifact(s)'
-
   def role_artifact
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
@@ -20,7 +20,7 @@ class AnsibleSDKCLI < Thor
       path = File.join 'roles', roledir
       asdk.log.debug "Building role #{role} from #{roledir}"
       result = asdk.execute(
-        "tar cvzpf build/#{roledir}-#{asdk.version path}.tgz " +
+        "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{options[:build_dir]}/#{roledir}-#{asdk.version path}.tgz " +
           "-X #{excludefile.path} " +
           "-C #{path} #{ paths.join " " }"
       ) 
@@ -40,8 +40,8 @@ class AnsibleSDKCLI < Thor
     entries = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
     asdk.log.debug "Building playbook artifact for #{playbook_name}"
     result = asdk.execute(
-      "tar cvzpf " +
-      "build/#{playbook_name}-#{asdk.version '.'}.tgz " + 
+      "mkdir -p '#{options[:build_dir]}' && tar cvzpf " +
+      "'#{options[:build_dir]}/#{playbook_name}-#{asdk.version '.'}.tgz' " +
       "-X #{excludefile.path} " +
       "-C . #{ entries.join " " }"
     ) 
@@ -54,6 +54,7 @@ class AnsibleSDKCLI < Thor
   desc 'publish_artifact', 'Publish artifact to S3'
   option :force,  type: :boolean, default: false
   option :public, type: :boolean, default: false
+  option :fail_on_exist, type: :boolean, default: false
   def publish_artifact path, s3_bucket = 'sps-build-deploy', s3_path = 'ansible/'
     require 'aws-sdk'
     s3_key = File.join s3_path, File.basename(path)
@@ -65,6 +66,10 @@ class AnsibleSDKCLI < Thor
         asdk.log.warn "Warn: forcing overwrite of #{s3object.key}"
       else
         asdk.log.fatal "Object already exists and force is not set; aborting"
+
+        if options[:fail_on_exist]
+          exit 1
+        end
        return false
       end
     end
