@@ -76,10 +76,7 @@ class AnsibleSDKCLI < Thor
     File.open( path, "r" ) do |f|
       s3object.write(f)
     end
-    asdk.log.info "File #{path} written to #{s3object.key}"
-    acl = ( options[:public] ? :public_read : :private )
-    s3object.acl = acl
-    asdk.log.debug "ACL set to :#{acl}"
+
     return true
   end
 
