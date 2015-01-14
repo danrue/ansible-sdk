@@ -44,7 +44,7 @@ Exit Status #{results[:exit_status]}"
 
   def role_paths
     return %w(
-      defaults files handlers meta tasks templates vars
+      defaults files handlers meta tasks templates vars library
     )
   end
   
