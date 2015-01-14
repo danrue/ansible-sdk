@@ -57,7 +57,7 @@ class AnsibleSDKCLI < Thor
   def publish_artifact path, s3_bucket = 'sps-build-deploy', s3_path = 'ansible/'
     require 'aws-sdk'
     s3_key = File.join s3_path, File.basename(path)
-    s3 = AWS::S3.new
+    s3 = ::AWS::S3.new
     bucket = s3.buckets[s3_bucket]
     s3object = bucket.objects[s3_key]
     if s3object.exists?
@@ -90,7 +90,7 @@ class AnsibleSDKCLI < Thor
         bucket = matchdata[1]
         path = matchdata[2]
         require 'aws-sdk'
-        s3obj = AWS::S3.new.buckets[bucket].objects[path]
+        s3obj = ::AWS::S3.new.buckets[bucket].objects[path]
         unless s3obj.exists?
           raise Exception, "S3 object #{requirement['url']} does not exist"
         end
