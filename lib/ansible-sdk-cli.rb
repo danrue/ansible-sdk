@@ -16,6 +16,7 @@ class AnsibleSDKCLI < Thor
       paths = asdk.role_paths.select{ |p| 
         File.exists? "roles/#{roledir}/#{p}"
       }
+
       role = File.basename(roledir)
       path = File.join 'roles', roledir
       asdk.log.debug "Building role #{role} from #{roledir}"
@@ -36,7 +37,8 @@ class AnsibleSDKCLI < Thor
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
     excludefile.fsync
-    playbook_name = File.basename( File.expand_path('.') )
+    playbook_name = 'ansible-pb-' + name(File.expand_path('.'))
+
     entries = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
     asdk.log.debug "Building playbook artifact for #{playbook_name}"
     result = asdk.execute(
@@ -115,6 +117,22 @@ class AnsibleSDKCLI < Thor
   end
 
 private
+  def name(dir)
+    require 'yaml'
+
+    metadata_file = 'metadata.yml'
+    name = File.basename(dir)
+
+    if File.exist?(metadata_file)
+      yaml = YAML.load_file(metadata_file)
+
+      if yaml.key?('name')
+        name = yaml['name']
+      end
+    end
+
+    name
+  end
 
   def asdk
     ansible_sdk
