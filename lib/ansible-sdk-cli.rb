@@ -10,10 +10,13 @@ class AnsibleSDKCLI < Thor
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
     excludefile.fsync
-    Dir.entries('roles').reject{ |d| 
-      asdk.role_excludes.include?(d) or ! File.directory? "roles/#{d}"
+
+    this_role = name(Dir.pwd)
+
+    Dir.entries('roles').reject{ |d|
+      asdk.role_excludes.include?(d) or ! File.directory? "roles/#{d}" or d != this_role
     }.each do |roledir|
-      paths = asdk.role_paths.select{ |p| 
+      paths = asdk.role_paths.select{ |p|
         File.exists? "roles/#{roledir}/#{p}"
       }
 
@@ -64,7 +67,7 @@ class AnsibleSDKCLI < Thor
     bucket = s3.buckets[s3_bucket]
     s3object = bucket.objects[s3_key]
     if s3object.exists?
-      if options[:force] 
+      if options[:force]
         asdk.log.warn "Warn: forcing overwrite of #{s3object.key}"
       else
         asdk.log.fatal "Object already exists and force is not set; aborting"
@@ -79,6 +82,8 @@ class AnsibleSDKCLI < Thor
       s3object.write(f)
     end
 
+    asdk.log.info "Setting Object ACLs"
+    s3object.acl = { :grant_full_control => "emailAddress=\"AWS_Development@spscommerce.com\", id=\"ea4d1ef911bc199d5b7967bd2dd39867891a50203a590ecfaa0f0350defe2059\"" }
     return true
   end
 
