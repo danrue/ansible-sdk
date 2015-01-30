@@ -131,7 +131,7 @@ class AnsibleSDKCLI < Thor
     require 'yaml'
     require 'tempfile'
 
-    unless File.file?('path')
+    unless File.file?(path)
       asdk.log.info "No requirements.yml file"
       exit 0
     end
