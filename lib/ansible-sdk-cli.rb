@@ -98,6 +98,12 @@ class AnsibleSDKCLI < Thor
   def dependencies path='./requirements.yml'
     require 'yaml'
     require 'tempfile'
+
+    unless File.file?('path')
+      asdk.log.info "No requirements.yml file"
+      exit 0
+    end
+
     requirements = YAML.load( File.read(path) )
     requirements.each do |requirement|
       asdk.log.debug "Attempting to meet dependency: #{requirement.inspect}"
