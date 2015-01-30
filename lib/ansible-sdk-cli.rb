@@ -6,7 +6,9 @@ class AnsibleSDKCLI < Thor
   class_option :build_dir, type: :string, default: 'build'
 
   desc 'role_artifact', 'build role artifact(s)'
-  def role_artifact
+  def role_artifact deploy_type
+    version = bump_version(deploy_type)
+
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
     excludefile.fsync
@@ -24,7 +26,7 @@ class AnsibleSDKCLI < Thor
       path = File.join 'roles', roledir
       asdk.log.debug "Building role #{role} from #{roledir}"
       result = asdk.execute(
-        "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{options[:build_dir]}/#{roledir}-#{asdk.version path}.tgz " +
+        "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{options[:build_dir]}/#{roledir}-#{version}.tgz " +
           "-X #{excludefile.path} " +
           "-C #{path} #{ paths.join " " }"
       ) 
@@ -36,7 +38,9 @@ class AnsibleSDKCLI < Thor
   end
 
   desc 'playbook_artifact', 'Build playbook artifacts'
-  def playbook_artifact 
+  def playbook_artifact deploy_type
+    version = bump_version(deploy_type)
+
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
     excludefile.fsync
@@ -46,7 +50,7 @@ class AnsibleSDKCLI < Thor
     asdk.log.debug "Building playbook artifact for #{playbook_name}"
     result = asdk.execute(
       "mkdir -p '#{options[:build_dir]}' && tar cvzpf " +
-      "'#{options[:build_dir]}/#{playbook_name}-#{asdk.version '.'}.tgz' " +
+      "'#{options[:build_dir]}/#{playbook_name}-#{version}.tgz' " +
       "-X #{excludefile.path} " +
       "-C . #{ entries.join " " }"
     ) 
@@ -137,6 +141,16 @@ private
     end
 
     name
+  end
+
+  def bump_version(deploy_type)
+    unless ['patch', 'minor', 'major'].include? deploy_type
+      abort('Deploy type must be one of the following: major, minor, patch')
+    end
+
+    version = %x(thor version:bump #{deploy_type})
+
+    return version
   end
 
   def asdk
