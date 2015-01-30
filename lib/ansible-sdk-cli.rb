@@ -1,6 +1,7 @@
 
-require 'thor' 
-require 'ansible-sdk' 
+require 'thor'
+require 'thor-scmversion'
+require 'ansible-sdk'
 
 class AnsibleSDKCLI < Thor
   class_option :build_dir, type: :string, default: 'build'
@@ -8,6 +9,8 @@ class AnsibleSDKCLI < Thor
   desc 'role_artifact', 'build role artifact(s)'
   def role_artifact deploy_type
     version = bump_version(deploy_type)
+
+    puts "Current version is: #{version}"
 
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
@@ -148,9 +151,10 @@ private
       abort('Deploy type must be one of the following: major, minor, patch')
     end
 
-    version = %x(thor version:bump #{deploy_type})
-
-    return version
+    scm = ::ThorSCMVersion::Tasks.new
+    scm.bump(deploy_type)
+    current_version = ::ThorSCMVersion.versioner.from_path
+    return current_version
   end
 
   def asdk
