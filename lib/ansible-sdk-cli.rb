@@ -8,7 +8,12 @@ class AnsibleSDKCLI < Thor
 
   desc 'role_artifact', 'build role artifact(s)'
   def role_artifact deploy_type
-    version = bump_version(deploy_type)
+
+    version = "0.0.0"
+
+    if deploy_type != "none"
+      version = bump_version(deploy_type)
+    end
 
     puts "Current version is: #{version}"
 
@@ -38,11 +43,18 @@ class AnsibleSDKCLI < Thor
           "Couldn't build role tarball for #{role} from #{roledir}"
      end
    end
+
+   return "#{options[:build_dir]}/#{this_role}-#{version}.tgz"
   end
 
   desc 'playbook_artifact', 'Build playbook artifacts'
   def playbook_artifact deploy_type
-    version = bump_version(deploy_type)
+
+    version = "0.0.0"
+
+    if deploy_type != "none"
+      version = bump_version(deploy_type)
+    end
 
     excludefile = Tempfile.new('excludes')
     excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
@@ -61,6 +73,25 @@ class AnsibleSDKCLI < Thor
       raise CommandError, 
       "Couldn't build playbook tarball for #{role} from #{roledir}"
     end
+
+    return "#{options[:build_dir]}/#{playbook_name}-#{version}.tgz"
+  end
+
+  desc 'deploy', 'Build and publish an artifact to S3'
+  def deploy deploy_type
+    artifact = ''
+    artifact_type = type('.')
+    if artifact_type == "role"
+      artifact = role_artifact(deploy_type)
+    elsif artifact_type == "playbook"
+      artifact = playbook_artifact(deploy_type)
+    else
+      raise CommandError, 
+      "Couldn't establish artifact type"
+    end
+
+    puts "Publish: #{artifact}"
+    #publish_artifact(artifact)
   end
 
   desc 'publish_artifact', 'Publish artifact to S3'
@@ -150,6 +181,23 @@ private
     end
 
     name
+  end
+
+  def type(dir)
+    require 'yaml'
+
+    metadata_file = 'metadata.yml'
+    type = File.basename(dir)
+
+    if File.exist?(metadata_file)
+      yaml = YAML.load_file(metadata_file)
+
+      if yaml.key?('type')
+        type = yaml['type']
+      end
+    end
+
+    type
   end
 
   def bump_version(deploy_type)
