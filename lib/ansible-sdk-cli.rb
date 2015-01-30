@@ -90,8 +90,9 @@ class AnsibleSDKCLI < Thor
       "Couldn't establish artifact type"
     end
 
-    puts "Publish: #{artifact}"
-    #publish_artifact(artifact)
+    unless deploy_type == "none"
+      publish_artifact(artifact)
+    end
   end
 
   desc 'publish_artifact', 'Publish artifact to S3'
