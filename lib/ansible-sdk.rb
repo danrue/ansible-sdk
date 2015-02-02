@@ -60,6 +60,8 @@ Exit Status #{results[:exit_status]}"
         .vagrant
         build
         VERSION
+        Thorfile
+        Gemfile Gemfile-e
     )
   end
 

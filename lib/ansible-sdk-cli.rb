@@ -6,9 +6,70 @@ require 'ansible-sdk'
 class AnsibleSDKCLI < Thor
   class_option :build_dir, type: :string, default: 'build'
 
+  desc 'build_artifact', 'build Ansible artifact'
+  def build_artifact deploy_type
+    version = "0.0.0"
+
+    if deploy_type != "none"
+      version = bump_version(deploy_type)
+    end
+
+    puts "Current version is: #{version}"
+
+    artifact_name = name(Dir.pwd)
+    artifact_type = type(Dir.pwd)
+
+    artifact_file_name = ''
+    target_files = ''
+
+    excludefile = Tempfile.new('excludes')
+    if artifact_type == "role"
+      asdk.log.debug "Building role #{artifact_name} from roles/#{artifact_name}"
+      artifact_file_name = "#{options[:build_dir]}/#{artifact_name}-#{version}.tgz"
+
+      excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
+
+      paths = asdk.role_paths.select{ |p|
+        File.exists? "roles/#{artifact_name}/#{p}"
+      }
+
+      path = File.join 'roles', artifact_name
+      target_files = "#{ paths.join " " }"
+
+    elsif artifact_type == "playbook"
+      asdk.log.debug "Building playbook artifact for ansible-pb-#{artifact_name}"
+      artifact_file_name = "#{options[:build_dir]}/ansible-pb-#{artifact_name}-#{version}.tgz"
+
+      excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
+
+      paths = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
+      
+      path = "."
+      target_files = "#{ paths.join " " }"
+
+    else
+      raise CommandError, 
+      "Couldn't establish artifact type"
+    end
+    excludefile.fsync    
+
+    result = asdk.execute(
+      "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{artifact_file_name} " +
+        "-X #{excludefile.path} " +
+        "-C #{path} #{target_files}"
+    ) 
+
+    unless result[:exit_status] == 0
+      raise CommandError, 
+      "Couldn't build artifact tarball for #{artifact_name}"
+    end
+
+    return artifact_file_name
+  end
+
   desc 'role_artifact', 'build role artifact(s)'
   def role_artifact deploy_type
-
+    # <b>DEPRECATED:</b> Please use <tt>build_artifact</tt> instead.
     version = "0.0.0"
 
     if deploy_type != "none"
@@ -49,7 +110,7 @@ class AnsibleSDKCLI < Thor
 
   desc 'playbook_artifact', 'Build playbook artifacts'
   def playbook_artifact deploy_type
-
+    # <b>DEPRECATED:</b> Please use <tt>build_artifact</tt> instead.
     version = "0.0.0"
 
     if deploy_type != "none"
@@ -79,16 +140,7 @@ class AnsibleSDKCLI < Thor
 
   desc 'deploy', 'Build and publish an artifact to S3'
   def deploy deploy_type
-    artifact = ''
-    artifact_type = type('.')
-    if artifact_type == "role"
-      artifact = role_artifact(deploy_type)
-    elsif artifact_type == "playbook"
-      artifact = playbook_artifact(deploy_type)
-    else
-      raise CommandError, 
-      "Couldn't establish artifact type"
-    end
+    artifact = build_artifact(deploy_type)
 
     unless deploy_type == "none"
       publish_artifact(artifact)
