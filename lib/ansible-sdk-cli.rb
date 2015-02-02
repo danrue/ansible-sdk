@@ -139,6 +139,12 @@ class AnsibleSDKCLI < Thor
     end
 
     requirements = YAML.load( File.read(path) )
+
+    if requirements.nil?
+      asdk.log.info "No requirements in requirements.yml file"
+      exit 0
+    end
+
     requirements.each do |requirement|
       asdk.log.debug "Attempting to meet dependency: #{requirement.inspect}"
       if requirement['url'] =~ %r(^s3://)
