@@ -101,6 +101,8 @@ class AnsibleSDKCLI < Thor
   option :fail_on_exist, type: :boolean, default: false
   def publish_artifact path, s3_bucket = 'sps-build-deploy', s3_path = 'ansible/'
     require 'aws-sdk'
+    setup_aws_credentials()
+
     s3_key = File.join s3_path, File.basename(path)
     s3 = ::AWS::S3.new
     bucket = s3.buckets[s3_bucket]
@@ -210,6 +212,18 @@ private
     scm.bump(deploy_type)
     current_version = ::ThorSCMVersion.versioner.from_path
     return current_version
+  end
+
+  def setup_aws_credentials
+    key = ENV['AWS_KEYS']
+    if key.nil?
+      if ENV['AWS_ACCESS_KEY_ID'].nil? || ENV['AWS_SECRET_ACCESS_KEY'].nil?
+        puts "AWS_KEYS not set"
+      end
+    else
+      ENV['AWS_ACCESS_KEY_ID'] = key.split(':')[0].strip
+      ENV['AWS_SECRET_ACCESS_KEY'] = key.split(':')[1].strip
+    end
   end
 
   def asdk
