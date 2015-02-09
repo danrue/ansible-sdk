@@ -291,5 +291,5 @@ private
     @ansible_sdk ||= AnsibleSDK.new
     @ansible_sdk
   end
-
+  class CommandError < Exception; end
 end
