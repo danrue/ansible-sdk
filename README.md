@@ -48,7 +48,7 @@ By default, bucket `sps-build-deploy` and
 </dl>
 
 
-### Resove role or artifact dependencies
+### Resolve role or artifact dependencies
 
 Given a file `requirements.yml` in your current directory that looks like this:
 <pre>
@@ -65,3 +65,19 @@ can resolve the specified dependency by downloading the
 tarball to a temporary location and then pull each path `from` the source and 
 copy it `to` the specified destination, relative to the current working directory.
 
+### Example requirements.yml
+
+<pre>
+- url: https://github.com/geerlingguy/ansible-role-jenkins/archive/1.1.2.tar.gz
+  paths:
+  - from: ansible-role-jenkins-1.1.2/.
+    to: roles/jenkins
+- url: git@github.com:geerlingguy/ansible-role-java.git
+  paths:
+  - from: .
+    to: roles/geerlingguy.java
+- url: s3://sps-build-deploy/ansible/ansible-demo-tarball-0.0.0.tbz2
+  paths:
+  - from: inventory
+    to: ./
+</pre>
