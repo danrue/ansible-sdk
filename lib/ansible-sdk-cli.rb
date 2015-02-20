@@ -215,10 +215,20 @@ class AnsibleSDKCLI < Thor
         file.fsync
         asdk.unarchive( file.path, requirement['paths'] )
         file.unlink
+      elsif requirement['url'] =~ %r(https?://)
+        require 'open-uri'
+        file = Tempfile.new('requirement')
+        begin
+          request = open(requirement['url']).read
+        rescue OpenURI::HTTPError => error
+          raise Exception, "HTTPS object #{requirement['url']} does not exist"
+        end
+        file.write(request)
+        file.fsync
+        asdk.unarchive( file.path, requirement['paths'] )
+        file.unlink
       elsif requirement['method'] == 'git' or requirement['url'] =~ /git@github\.com/
         raise Exception, "git backends Unimplemented"
-      elsif requirement['url'] =~ %r(https?://)
-        raise Exception, "http(s) backends Unimplemented"
       else
         asdk.log.fatal(msg="Couldn't resolve dependency: #{requirement.inspect}")
         raise ArgumentError, msg
