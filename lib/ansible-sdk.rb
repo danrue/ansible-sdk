@@ -86,6 +86,16 @@ Exit Status #{results[:exit_status]}"
     end
   end
 
+  def gitpath(archivepath,paths )
+    paths.each do |path|
+    FileUtils.mkdir_p path['to']
+      log.debug "#{File.join(archivepath, path['from'])}\t=>\t#{path['to']}"
+      FileUtils.rm_rf( File.join(archivepath, ".git"))
+      FileUtils.cp_r(File.join(archivepath, path['from']), path['to'])
+      gitignore_path(path['to'])
+    end
+  end
+
   def version path='./'
       versionpath = File.join path, 'VERSION' 
       begin
