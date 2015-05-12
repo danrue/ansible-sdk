@@ -1,4 +1,3 @@
-
 require 'thor'
 require 'thor-scmversion'
 require 'ansible-sdk'
@@ -6,178 +5,45 @@ require 'ansible-sdk'
 class AnsibleSDKCLI < Thor
   class_option :build_dir, type: :string, default: 'build'
 
-  desc 'build_artifact', 'build Ansible artifact'
+  def initialize *args
+    super
+    @index = 0
+    metadata
+  end
+
+  desc 'build_artifact', 'build Ansible artifact(s)'
   def build_artifact deploy_type
     version = "0.0.0"
-
     if deploy_type != "none"
       version = bump_version(deploy_type)
-    end
-
-    puts "Current version is: #{version}"
-
-    artifact_name = name(Dir.pwd)
-    artifact_type = type(Dir.pwd)
-
-    artifact_file_name = ''
-    target_files = ''
-
-    excludefile = Tempfile.new('excludes')
-    if artifact_type == "role"
-      asdk.log.debug "Building role #{artifact_name} from roles/#{artifact_name}"
-      artifact_file_name = "#{options[:build_dir]}/#{artifact_name}-#{version}.tgz"
-
-      excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
-
-      paths = asdk.role_paths.select{ |p|
-        File.exists? "roles/#{artifact_name}/#{p}"
-      }
-
-      path = File.join 'roles', artifact_name
-      target_files = "#{ paths.join " " }"
-
-    elsif artifact_type == "playbook"
-      asdk.log.debug "Building playbook artifact for ansible-pb-#{artifact_name}"
-      artifact_file_name = "#{options[:build_dir]}/ansible-pb-#{artifact_name}-#{version}.tgz"
-
-      excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
-
-      paths = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
-      
-      path = "."
-      target_files = "#{ paths.join " " }"
-
+      asdk.log.info "Current version after bump is: #{version}"
     else
-      raise CommandError, 
-      "Couldn't establish artifact type"
+      asdk.log.debug "No version increase; Current version is: #{version}"
     end
-    excludefile.fsync    
-
-    result = asdk.execute(
-      "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{artifact_file_name} " +
-        "-X #{excludefile.path} " +
-        "-C #{path} #{target_files}"
-    ) 
-
-    unless result[:exit_status] == 0
-      raise CommandError, 
-      "Couldn't build artifact tarball for #{artifact_name}"
+    (0..@metadata.length-1).each do |i|
+      @index = i
+      build_artifact_index 
     end
-
-    return artifact_file_name
   end
-
-  desc 'role_artifact', 'build role artifact(s)'
-  def role_artifact deploy_type
-    # <b>DEPRECATED:</b> Please use <tt>build_artifact</tt> instead.
-    version = "0.0.0"
-
-    if deploy_type != "none"
-      version = bump_version(deploy_type)
-    end
-
-    puts "Current version is: #{version}"
-
-    excludefile = Tempfile.new('excludes')
-    excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
-    excludefile.fsync
-
-    this_role = name(Dir.pwd)
-
-    Dir.entries('roles').reject{ |d|
-      asdk.role_excludes.include?(d) or ! File.directory? "roles/#{d}" or d != this_role
-    }.each do |roledir|
-      paths = asdk.role_paths.select{ |p|
-        File.exists? "roles/#{roledir}/#{p}"
-      }
-
-      role = File.basename(roledir)
-      path = File.join 'roles', roledir
-      asdk.log.debug "Building role #{role} from #{roledir}"
-      result = asdk.execute(
-        "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{options[:build_dir]}/#{roledir}-#{version}.tgz " +
-          "-X #{excludefile.path} " +
-          "-C #{path} #{ paths.join " " }"
-      ) 
-      unless result[:exit_status] == 0
-        raise CommandError, 
-          "Couldn't build role tarball for #{role} from #{roledir}"
-     end
-   end
-
-   return "#{options[:build_dir]}/#{this_role}-#{version}.tgz"
-  end
-
-  desc 'playbook_artifact', 'Build playbook artifacts'
-  def playbook_artifact deploy_type
-    # <b>DEPRECATED:</b> Please use <tt>build_artifact</tt> instead.
-    version = "0.0.0"
-
-    if deploy_type != "none"
-      version = bump_version(deploy_type)
-    end
-
-    excludefile = Tempfile.new('excludes')
-    excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
-    excludefile.fsync
-    playbook_name = 'ansible-pb-' + name(File.expand_path('.'))
-
-    entries = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
-    asdk.log.debug "Building playbook artifact for #{playbook_name}"
-    result = asdk.execute(
-      "mkdir -p '#{options[:build_dir]}' && tar cvzpf " +
-      "'#{options[:build_dir]}/#{playbook_name}-#{version}.tgz' " +
-      "-X #{excludefile.path} " +
-      "-C . #{ entries.join " " }"
-    ) 
-    unless result[:exit_status] == 0
-      raise CommandError, 
-      "Couldn't build playbook tarball for #{role} from #{roledir}"
-    end
-
-    return "#{options[:build_dir]}/#{playbook_name}-#{version}.tgz"
-  end
-
-  desc 'deploy', 'Build and publish an artifact to S3'
+  
+  desc 'deploy', 'Build and publish artifact(s) to S3'
   def deploy deploy_type
-    artifact = build_artifact(deploy_type)
-
-    unless deploy_type == "none"
-      publish_artifact(artifact)
+    (0..@metadata.length-1).each do |i|
+      @index  = i
+      artifact = build_artifact_index
+      publish_artifact_index(artifact) unless deploy_type == "none"
     end
   end
 
-  desc 'publish_artifact', 'Publish artifact to S3'
+  desc 'publish_artifact', 'Publish specified artifact to S3'
   option :force,  type: :boolean, default: false
   option :public, type: :boolean, default: false
   option :fail_on_exist, type: :boolean, default: false
   def publish_artifact path, s3_bucket = 'sps-build-deploy', s3_path = 'ansible/'
-    require 'aws-sdk'
-    setup_aws_credentials()
-
-    s3_key = File.join s3_path, File.basename(path)
-    s3 = ::AWS::S3.new
-    bucket = s3.buckets[s3_bucket]
-    s3object = bucket.objects[s3_key]
-    if s3object.exists?
-      if options[:force]
-        asdk.log.warn "Warn: forcing overwrite of #{s3object.key}"
-      else
-        asdk.log.fatal "Object already exists and force is not set; aborting"
-
-        if options[:fail_on_exist]
-          exit 1
-        end
-       return false
-      end
+    (0..@metadata.length-1).each do |i|
+      @index = i
+      publish_artifact_index path, s3_bucket, s3_path
     end
-    File.open( path, "r" ) do |f|
-      s3object.write(f)
-    end
-
-    asdk.log.info "Setting Object ACLs"
-    s3object.acl = { :grant_full_control => "emailAddress=\"AWS_Development@spscommerce.com\", id=\"ea4d1ef911bc199d5b7967bd2dd39867891a50203a590ecfaa0f0350defe2059\"" }
-    return true
   end
 
   desc 'dependencies', 'resolve dependencies'
@@ -206,7 +72,7 @@ class AnsibleSDKCLI < Thor
         require 'aws-sdk'
         s3obj = ::AWS::S3.new.buckets[bucket].objects[path]
         unless s3obj.exists?
-          raise Exception, "S3 object #{requirement['url']} does not exist"
+          raise ConfigError, "S3 object #{requirement['url']} does not exist"
         end
         file = Tempfile.new('requirement')
         s3obj.read do |chunk|
@@ -216,9 +82,9 @@ class AnsibleSDKCLI < Thor
         asdk.unarchive( file.path, requirement['paths'] )
         file.unlink
       elsif requirement['method'] == 'git' or requirement['url'] =~ /git@github\.com/
-        raise Exception, "git backends Unimplemented"
+        raise ConfigError, "git backends Unimplemented"
       elsif requirement['url'] =~ %r(https?://)
-        raise Exception, "http(s) backends Unimplemented"
+        raise ConfigError, "http(s) backends Unimplemented"
       else
         asdk.log.fatal(msg="Couldn't resolve dependency: #{requirement.inspect}")
         raise ArgumentError, msg
@@ -227,38 +93,69 @@ class AnsibleSDKCLI < Thor
   end
 
 private
-  def name(dir)
-    require 'yaml'
-
-    metadata_file = 'metadata.yml'
-    name = File.basename(dir)
-
-    if File.exist?(metadata_file)
-      yaml = YAML.load_file(metadata_file)
-
-      if yaml.key?('name')
-        name = yaml['name']
-      end
-    end
-
-    name
+  # consistent single location where file location is specified
+  def metadata_file
+    'metadata.yml'
+  end
+  # built-in documentation for the metadata file.  Could be used in error messages, etc.  
+  def metadata_fields
+    return { 
+      'name'=> { 
+        'description'=> %Q(Name of artifact without version.  Typically this is the name of the role or playbook.  If unspecified, the name of the directory from which the ansible-sdk has been written, will be used),
+        'optional'=> true,
+        'validation'=> '/^[_-a-zA-Z0-9.]+$/'
+      },
+      'type'=> {
+        'description'=> %Q(Type of artifact: role or playbook?),
+        'optional'=> false,
+        'validation' => '/^(role|playbook)$/'
+      },
+      'ansible_path' => {
+        'description' => %Q(the root of the ansible code, defaulting to the current directory),
+        'optional' => true,
+        'validation'=> 'valid path'
+      }   
+    }
   end
 
-  def type(dir)
-    require 'yaml'
-
-    metadata_file = 'metadata.yml'
-    type = File.basename(dir)
-
-    if File.exist?(metadata_file)
-      yaml = YAML.load_file(metadata_file)
-
-      if yaml.key?('type')
-        type = yaml['type']
-      end
+  def cache_metadata
+    begin
+      require 'yaml'
+      @metadata = YAML.load_file( metadata_file )
+      @metadata = [ @metadata ] unless @metadata.kind_of? Array
+      asdk.log.debug @metadata.inspect
+    rescue Errno::ENOENT => e 
+      raise ConfigError, "No config metadata file '#{metadata_file}' found; Please create a #{metadata_file} metadata file"
     end
+  end
 
-    type
+  # lookup and cache metadata or return from cache
+  def metadata index=nil
+    index=@index unless index
+    cache_metadata unless instance_variable_defined? :@metadata
+    @metadata[index]
+  end
+
+  # return configured name, default to directory name
+  def name(dir)
+    begin
+      name = metadata['name']
+    rescue ConfigError => e 
+    end 
+    name ||= File.basename(dir) 
+  end
+
+  def type
+    data = metadata['type']
+    unless data
+      raise ConfigError, "type is a required field:  #{metadata_fields['type'].inspect}"
+    end
+    data
+  end
+
+  def ansible_path
+    data = metadata['ansible_path'] 
+    data ||= './'
   end
 
   def bump_version(deploy_type)
@@ -276,12 +173,92 @@ private
     key = ENV['AWS_KEYS']
     if key.nil?
       if ENV['AWS_ACCESS_KEY_ID'].nil? || ENV['AWS_SECRET_ACCESS_KEY'].nil?
-        puts "AWS_KEYS not set"
+        asdk.log.warn "AWS_KEYS not set"
       end
     else
       ENV['AWS_ACCESS_KEY_ID'] = key.split(':')[0].strip
       ENV['AWS_SECRET_ACCESS_KEY'] = key.split(':')[1].strip
     end
+  end
+  
+  def build_artifact_index 
+
+    artifact_name = name(Dir.pwd)
+    artifact_file_name = ''
+    target_files = ''
+    artifact_file_path = File.expand_path(options[:build_dir])
+    Dir.chdir(ansible_path) do
+      excludefile = Tempfile.new('excludes')
+      if type == "role"
+        asdk.log.debug "Building role #{artifact_name} from roles/#{artifact_name}"
+        artifact_file_name = File.join( artifact_file_path, "#{artifact_name}-#{version}.tgz" )
+
+        excludefile.write "#{(asdk.role_excludes.join "\n")}\n"
+
+        paths = asdk.role_paths.select{ |p|
+          File.exists? "roles/#{artifact_name}/#{p}"
+        }
+
+        path = File.join 'roles', artifact_name
+        target_files = "#{ paths.join " " }"
+
+      elsif type == "playbook"
+        asdk.log.debug "Building playbook artifact for ansible-pb-#{artifact_name}"
+        artifact_file_name = File.join( artifact_file_path, "ansible-pb-#{artifact_name}-#{version}.tgz" )
+
+        excludefile.write "#{(asdk.playbook_excludes.join "\n")}\n"
+
+        paths = Dir.entries('./').reject{ |d| asdk.playbook_excludes.include? d }
+      
+        path = "."
+        target_files = "#{ paths.join " " }"
+      else
+        raise CommandError, 
+          "Couldn't build artifact type '#{type}'"
+      end
+      excludefile.fsync    
+
+      result = asdk.execute(
+        "mkdir -p '#{options[:build_dir]}' && tar cvzpf #{artifact_file_name} " +
+          "-X #{excludefile.path} " +
+          "-C #{path} #{target_files}"
+      ) 
+
+      unless result[:exit_status] == 0
+        raise CommandError, 
+          "Couldn't build artifact tarball for #{artifact_name}"
+      end
+    end
+    return artifact_file_name
+  end
+
+  def publish_artifact_index path, s3_bucket='sps-build-deploy', s3_path = 'ansible/'
+    require 'aws-sdk'
+    setup_aws_credentials()
+
+    s3_key = File.join s3_path, File.basename(path)
+    s3 = ::AWS::S3.new
+    bucket = s3.buckets[s3_bucket]
+    s3object = bucket.objects[s3_key]
+    if s3object.exists?
+      if options[:force]
+        asdk.log.warn "Warn: forcing overwrite of #{s3object.key}"
+      else
+        asdk.log.fatal "Object already exists and force is not set; aborting"
+
+        if options[:fail_on_exist]
+          exit 1
+        end
+       return false
+      end
+    end
+    File.open( path, "r" ) do |f|
+      s3object.write(f)
+    end
+
+    asdk.log.info "Setting Object ACLs"
+    s3object.acl = { :grant_full_control => "emailAddress=\"AWS_Development@spscommerce.com\", id=\"ea4d1ef911bc199d5b7967bd2dd39867891a50203a590ecfaa0f0350defe2059\"" }
+    return true
   end
 
   def asdk
@@ -292,4 +269,6 @@ private
     @ansible_sdk
   end
   class CommandError < Exception; end
+  class DeprecationError < Exception; end
+  class ConfigError < Exception; end
 end
