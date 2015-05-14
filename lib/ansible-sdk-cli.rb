@@ -11,26 +11,22 @@ class AnsibleSDKCLI < Thor
     metadata
   end
 
+
   desc 'build_artifact', 'build Ansible artifact(s)'
   def build_artifact deploy_type
-    version = "0.0.0"
-    if deploy_type != "none"
-      version = bump_version(deploy_type)
-      asdk.log.info "Current version after bump is: #{version}"
-    else
-      asdk.log.debug "No version increase; Current version is: #{version}"
-    end
+    version = increase_version deploy_type
     (0..@metadata.length-1).each do |i|
       @index = i
-      build_artifact_index 
+      build_artifact_index(version)
     end
   end
   
   desc 'deploy', 'Build and publish artifact(s) to S3'
   def deploy deploy_type
+    version = increase_version(deploy_type)
     (0..@metadata.length-1).each do |i|
-      @index  = i
-      artifact = build_artifact_index
+      @index = i
+      artifact = build_artifact_index(version)
       publish_artifact_index(artifact) unless deploy_type == "none"
     end
   end
@@ -181,8 +177,7 @@ private
     end
   end
   
-  def build_artifact_index 
-
+  def build_artifact_index version
     artifact_name = name(Dir.pwd)
     artifact_file_name = ''
     target_files = ''
@@ -259,6 +254,17 @@ private
     asdk.log.info "Setting Object ACLs"
     s3object.acl = { :grant_full_control => "emailAddress=\"AWS_Development@spscommerce.com\", id=\"ea4d1ef911bc199d5b7967bd2dd39867891a50203a590ecfaa0f0350defe2059\"" }
     return true
+  end
+    
+  def increase_version deploy_type
+    version = "0.0.0"
+    if deploy_type != "none"
+      version = bump_version(deploy_type)
+      asdk.log.info "Current version after bump is: #{version}"
+    else
+      asdk.log.debug "No version increase; Current version is: #{version}"
+    end
+    version
   end
 
   def asdk
