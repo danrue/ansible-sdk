@@ -1,11 +1,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = 'ansible-sdk'
-<<<<<<< HEAD
   spec.version       = '0.9.20'
-=======
-  spec.version       = '0.9.19'
->>>>>>> httpsgit
   spec.authors       = ['Dan Farrell (dfarrell@spscommerce.com)']
   spec.email         = %w( cloudops@spscommerce.com )
   spec.summary       = 'Provides a consistent base for ansible development.'
