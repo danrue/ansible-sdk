@@ -62,6 +62,7 @@ Exit Status #{results[:exit_status]}"
         VERSION
         Thorfile
         Gemfile Gemfile-e
+        virtualenv
     )
   end
 
